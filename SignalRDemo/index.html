@@ -185,7 +185,7 @@
 <script>
 // ============ CONFIGURAZIONE ============
 // Modifica con l'indirizzo del tuo backend ASP.NET Core (vedi README).
-const HUB_URL = "https://localhost:7051/hubs/market";
+const HUB_URL = "http://localhost:5131/hubs/market";
 
 // ============ STATO CLIENT ============
 let connection = null;
@@ -299,7 +299,7 @@ function setStatus(connected, label) {
 function startConnection() {
   connection = new signalR.HubConnectionBuilder()
     .withUrl(`${HUB_URL}?user=${encodeURIComponent(userName)}`)
-    .withAutomaticReconnect([0, 2000, 5000, 10000]) // fondamentale: riconnessione automatica con backoff
+    .withAutomaticReconnect([0, 2000, 5000, 10000, 60000]) // fondamentale: riconnessione automatica con backoff
     .configureLogging(signalR.LogLevel.Warning)
     .build();
 
@@ -335,16 +335,16 @@ function startConnection() {
   });
 
   connection.on("TradeExecuted", (fill, newPrice) => {
-    if (fill.Ticker === currentTicker) {
+    if (fill.ticker === currentTicker) {
       logLine(
-        `<span class="tag-trade">[TRADE]</span> ${fill.User} ha eseguito ${fill.Side} ${fill.Quantity} ${fill.Ticker} @ ${fill.FillPrice.toFixed(2)} → nuovo prezzo ${newPrice.toFixed(2)}`
+        `<span class="tag-trade">[TRADE]</span> ${fill.user} ha eseguito ${fill.side} ${fill.quantity} ${fill.ticker} @ ${fill.fillPrice.toFixed(2)} → nuovo prezzo ${newPrice.toFixed(2)}`
       );
     }
   });
 
   connection.on("OrderFilled", (fill) => {
     logLine(
-      `<span class="tag-fill">[ESEGUITO]</span> il tuo ordine ${fill.Side} ${fill.Quantity} ${fill.Ticker} @ ${fill.FillPrice.toFixed(2)}`
+      `<span class="tag-fill">[ESEGUITO]</span> il tuo ordine ${fill.side} ${fill.quantity} ${fill.ticker} @ ${fill.fillPrice.toFixed(2)}`
     );
   });
 
