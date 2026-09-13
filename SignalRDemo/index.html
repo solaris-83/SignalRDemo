@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TradingHub — Live Desk</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
+<style>
+  :root{
+    --bg: #0d1117;
+    --panel: #12181f;
+    --line: #232b34;
+    --ink: #d9e0e8;
+    --dim: #6b7684;
+    --up: #3fb950;
+    --down: #f0554b;
+    --accent: #d4a24c;
+    --mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--bg); color: var(--ink);
+    font-family: "IBM Plex Sans", sans-serif;
+  }
+
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 18px; border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .brand { font-family: var(--mono); font-weight: 700; font-size: 15px; letter-spacing: 0.5px; }
+  .brand span { color: var(--accent); }
+  .status-row { display:flex; align-items:center; gap: 10px; font-family: var(--mono); font-size: 12px; color: var(--dim); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--down); display:inline-block; }
+  .dot.live { background: var(--up); }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 220px 1fr 300px;
+    height: calc(100% - 46px);
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; height: auto; }
+  }
+
+  .panel { border-right: 1px solid var(--line); overflow-y: auto; }
+  .panel:last-child { border-right: none; }
+
+  .panel h2 {
+    font-family: var(--mono); font-size: 11px; font-weight: 600;
+    color: var(--dim); margin: 0; padding: 10px 14px;
+    border-bottom: 1px solid var(--line); letter-spacing: 0.6px;
+  }
+
+  /* Tickers list */
+  .ticker-list { list-style: none; margin: 0; padding: 4px 0; }
+  .ticker-list li {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 14px; cursor: pointer; font-family: var(--mono); font-size: 13px;
+    border-left: 3px solid transparent;
+  }
+  .ticker-list li:hover { background: #161d26; }
+  .ticker-list li.active { border-left-color: var(--accent); background: #161d26; }
+  .ticker-list li .px { color: var(--dim); }
+  .ticker-list li .px.up { color: var(--up); }
+  .ticker-list li .px.down { color: var(--down); }
+
+  /* Center: room */
+  .room-header {
+    padding: 14px 18px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: baseline; gap: 14px;
+  }
+  .room-header .sym { font-family: var(--mono); font-size: 22px; font-weight: 700; }
+  .room-header .price { font-family: var(--mono); font-size: 22px; font-weight: 600; }
+  .room-header .price.flash-up { animation: flashUp 0.6s ease; }
+  .room-header .price.flash-down { animation: flashDown 0.6s ease; }
+  @keyframes flashUp { 0% { color: var(--up); } 100% { color: var(--ink); } }
+  @keyframes flashDown { 0% { color: var(--down); } 100% { color: var(--ink); } }
+
+  .order-form {
+    display: flex; gap: 8px; padding: 14px 18px; border-bottom: 1px solid var(--line);
+    align-items: center; flex-wrap: wrap;
+  }
+  .order-form input, .order-form select, .order-form button {
+    font-family: var(--mono); font-size: 13px; background: #0a0e13; color: var(--ink);
+    border: 1px solid var(--line); border-radius: 3px; padding: 7px 10px;
+  }
+  .order-form input[type=number] { width: 90px; }
+  .btn-buy { background: var(--up) !important; color: #06210c !important; font-weight: 700; border: none !important; cursor: pointer; }
+  .btn-sell { background: var(--down) !important; color: #2a0705 !important; font-weight: 700; border: none !important; cursor: pointer; }
+
+  .feed { padding: 8px 18px; font-family: var(--mono); font-size: 12.5px; }
+  .feed .line { padding: 5px 0; border-bottom: 1px dashed #1a212a; color: var(--dim); }
+  .feed .line .tag-trade { color: var(--accent); }
+  .feed .line .tag-fill { color: var(--up); }
+  .feed .line .tag-reject { color: var(--down); }
+  .feed .line .tag-room { color: #6ea8d8; }
+  .feed .line .tag-chat { color: var(--ink); }
+
+  .chat-input { display: flex; gap: 8px; padding: 10px 18px; border-top: 1px solid var(--line); }
+  .chat-input input { flex: 1; font-family: var(--mono); font-size: 13px; background: #0a0e13; color: var(--ink); border: 1px solid var(--line); border-radius: 3px; padding: 7px 10px; }
+  .chat-input button { font-family: var(--mono); font-size: 13px; background: #1b232c; color: var(--ink); border: 1px solid var(--line); border-radius: 3px; padding: 7px 12px; cursor: pointer; }
+
+  /* Right: users */
+  .user-list { list-style: none; margin: 0; padding: 8px 14px; font-family: var(--mono); font-size: 13px; }
+  .user-list li { padding: 5px 0; color: var(--ink); display:flex; align-items:center; gap: 8px; }
+  .user-list li::before { content: "●"; color: var(--up); font-size: 8px; }
+
+  .name-gate {
+    position: fixed; inset: 0; background: #05070a; display: flex; align-items: center; justify-content: center; z-index: 10;
+  }
+  .name-gate form {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 28px 30px;
+    display: flex; flex-direction: column; gap: 14px; width: 280px;
+  }
+  .name-gate h1 { font-family: var(--mono); font-size: 16px; margin: 0; }
+  .name-gate p { font-family: var(--mono); font-size: 12px; color: var(--dim); margin: 0; }
+  .name-gate input { font-family: var(--mono); background: #0a0e13; color: var(--ink); border: 1px solid var(--line); border-radius: 3px; padding: 9px 10px; }
+  .name-gate button { font-family: var(--mono); background: var(--accent); color: #241a06; border: none; border-radius: 3px; padding: 10px; font-weight: 700; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div class="name-gate" id="nameGate">
+  <form id="nameForm">
+    <h1>TradingHub<span style="color:var(--accent)">.</span></h1>
+    <p>Scegli un nome per entrare nel desk live</p>
+    <input id="nameInput" type="text" placeholder="es. mrossi" maxlength="20" required />
+    <button type="submit">Entra</button>
+  </form>
+</div>
+
+<div class="topbar">
+  <div class="brand">TRADING<span>HUB</span> — LIVE DESK</div>
+  <div class="status-row">
+    <span class="dot" id="statusDot"></span>
+    <span id="statusText">disconnesso</span>
+  </div>
+</div>
+
+<div class="layout">
+
+  <!-- Colonna sinistra: watchlist / gruppi -->
+  <div class="panel">
+    <h2>WATCHLIST</h2>
+    <ul class="ticker-list" id="tickerList"></ul>
+  </div>
+
+  <!-- Colonna centrale: stanza attiva -->
+  <div class="panel" style="display:flex; flex-direction:column;">
+    <div class="room-header" id="roomHeader">
+      <span class="sym">—</span>
+      <span class="price">seleziona un ticker</span>
+    </div>
+
+    <div class="order-form" id="orderForm">
+      <select id="orderSide">
+        <option value="BUY">BUY</option>
+        <option value="SELL">SELL</option>
+      </select>
+      <input id="orderQty" type="number" min="1" value="10" />
+      <button class="btn-buy" id="btnBuy" type="button">Compra</button>
+      <button class="btn-sell" id="btnSell" type="button">Vendi</button>
+    </div>
+
+    <div class="feed" id="feed" style="flex:1; overflow-y:auto;"></div>
+
+    <div class="chat-input">
+      <input id="chatInput" type="text" placeholder="Messaggio alla stanza..." />
+      <button id="btnSend">Invia</button>
+    </div>
+  </div>
+
+  <!-- Colonna destra: presenza utenti -->
+  <div class="panel">
+    <h2>UTENTI ONLINE (<span id="userCount">0</span>)</h2>
+    <ul class="user-list" id="userList"></ul>
+  </div>
+
+</div>
+
+<script>
+// ============ CONFIGURAZIONE ============
+// Modifica con l'indirizzo del tuo backend ASP.NET Core (vedi README).
+const HUB_URL = "https://localhost:7051/hubs/market";
+
+// ============ STATO CLIENT ============
+let connection = null;
+let currentTicker = null;
+let userName = null;
+const knownTickers = ["AAPL", "MSFT", "GOOG", "TSLA"];
+const lastPrices = {};
+
+// ============ GATE NOME UTENTE ============
+document.getElementById("nameForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  userName = document.getElementById("nameInput").value.trim();
+  if (!userName) return;
+  document.getElementById("nameGate").style.display = "none";
+  startConnection();
+});
+
+// ============ COSTRUZIONE WATCHLIST ============
+function renderTickerList() {
+  const ul = document.getElementById("tickerList");
+  ul.innerHTML = "";
+  knownTickers.forEach((t) => {
+    const li = document.createElement("li");
+    li.dataset.ticker = t;
+    li.className = t === currentTicker ? "active" : "";
+    const price = lastPrices[t];
+    li.innerHTML = `<span>${t}</span><span class="px">${price ? price.toFixed(2) : "..."}</span>`;
+    li.addEventListener("click", () => switchTicker(t));
+    ul.appendChild(li);
+  });
+}
+
+function flashPrice(ticker, newPrice) {
+  const prev = lastPrices[ticker];
+  lastPrices[ticker] = newPrice;
+  renderTickerList();
+  if (ticker === currentTicker) {
+    const priceEl = document.querySelector("#roomHeader .price");
+    priceEl.textContent = newPrice.toFixed(2);
+    priceEl.classList.remove("flash-up", "flash-down");
+    if (prev !== undefined) {
+      priceEl.classList.add(newPrice >= prev ? "flash-up" : "flash-down");
+    }
+  }
+}
+
+// ============ FEED EVENTI (log centrale) ============
+function logLine(html) {
+  const feed = document.getElementById("feed");
+  const div = document.createElement("div");
+  div.className = "line";
+  div.innerHTML = html;
+  feed.appendChild(div);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+// ============ CAMBIO STANZA (Groups: unsubscribe/subscribe) ============
+async function switchTicker(ticker) {
+  if (!connection || connection.state !== signalR.HubConnectionState.Connected) return;
+  if (currentTicker === ticker) return;
+
+  if (currentTicker) {
+    await connection.invoke("Unsubscribe", currentTicker);
+  }
+  currentTicker = ticker;
+  renderTickerList();
+
+  document.querySelector("#roomHeader .sym").textContent = ticker;
+  document.querySelector("#roomHeader .price").textContent = lastPrices[ticker]
+    ? lastPrices[ticker].toFixed(2)
+    : "...";
+
+  await connection.invoke("Subscribe", ticker);
+}
+
+// ============ INVIO ORDINE (invocazione client -> server) ============
+async function sendOrder(side) {
+  if (!currentTicker) {
+    alert("Seleziona prima un ticker dalla watchlist.");
+    return;
+  }
+  const qty = parseInt(document.getElementById("orderQty").value, 10);
+  try {
+    await connection.invoke("PlaceOrder", { ticker: currentTicker, side, quantity: qty });
+  } catch (err) {
+    logLine(`<span class="tag-reject">[ERRORE]</span> invocazione fallita: ${err}`);
+  }
+}
+document.getElementById("btnBuy").addEventListener("click", () => sendOrder("BUY"));
+document.getElementById("btnSell").addEventListener("click", () => sendOrder("SELL"));
+
+// ============ CHAT DI STANZA ============
+document.getElementById("btnSend").addEventListener("click", sendChat);
+document.getElementById("chatInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") sendChat();
+});
+async function sendChat() {
+  const input = document.getElementById("chatInput");
+  const text = input.value.trim();
+  if (!text || !currentTicker) return;
+  await connection.invoke("SendRoomMessage", currentTicker, text);
+  input.value = "";
+}
+
+// ============ CONNESSIONE SIGNALR ============
+function setStatus(connected, label) {
+  document.getElementById("statusDot").className = "dot" + (connected ? " live" : "");
+  document.getElementById("statusText").textContent = label;
+}
+
+function startConnection() {
+  connection = new signalR.HubConnectionBuilder()
+    .withUrl(`${HUB_URL}?user=${encodeURIComponent(userName)}`)
+    .withAutomaticReconnect([0, 2000, 5000, 10000]) // fondamentale: riconnessione automatica con backoff
+    .configureLogging(signalR.LogLevel.Warning)
+    .build();
+
+  // ---- Eventi server -> client ----
+
+  connection.on("Snapshot", (prices) => {
+    Object.entries(prices).forEach(([t, p]) => (lastPrices[t] = p));
+    renderTickerList();
+  });
+
+  connection.on("MarketSnapshot", (prices) => {
+    Object.entries(prices).forEach(([t, p]) => flashPrice(t, p));
+  });
+
+  connection.on("PriceTick", (ticker, price) => {
+    flashPrice(ticker, price);
+  });
+
+  connection.on("Subscribed", (ticker, price) => {
+    lastPrices[ticker] = price;
+    flashPrice(ticker, price);
+    logLine(`<span class="tag-room">[STANZA]</span> iscritto a ${ticker} — prezzo corrente ${price.toFixed(2)}`);
+  });
+
+  connection.on("RoomActivity", (ticker, message) => {
+    if (ticker === currentTicker) logLine(`<span class="tag-room">[STANZA]</span> ${message}`);
+  });
+
+  connection.on("RoomMessage", (ticker, from, message) => {
+    if (ticker === currentTicker) {
+      logLine(`<span class="tag-chat">[${from}]</span> ${escapeHtml(message)}`);
+    }
+  });
+
+  connection.on("TradeExecuted", (fill, newPrice) => {
+    if (fill.Ticker === currentTicker) {
+      logLine(
+        `<span class="tag-trade">[TRADE]</span> ${fill.User} ha eseguito ${fill.Side} ${fill.Quantity} ${fill.Ticker} @ ${fill.FillPrice.toFixed(2)} → nuovo prezzo ${newPrice.toFixed(2)}`
+      );
+    }
+  });
+
+  connection.on("OrderFilled", (fill) => {
+    logLine(
+      `<span class="tag-fill">[ESEGUITO]</span> il tuo ordine ${fill.Side} ${fill.Quantity} ${fill.Ticker} @ ${fill.FillPrice.toFixed(2)}`
+    );
+  });
+
+  connection.on("OrderRejected", (order, reason) => {
+    logLine(`<span class="tag-reject">[RIFIUTATO]</span> ${order.side} ${order.quantity} ${order.ticker}: ${reason}`);
+  });
+
+  connection.on("ErrorMessage", (msg) => {
+    logLine(`<span class="tag-reject">[ERRORE]</span> ${msg}`);
+  });
+
+  connection.on("UserPresence", (name, online, count) => {
+    document.getElementById("userCount").textContent = count;
+    logLine(`<span class="tag-room">[PRESENZA]</span> ${name} è ${online ? "entrato" : "uscito"}`);
+    refreshFakeUserList(name, online);
+  });
+
+  // ---- Ciclo di vita della connessione ----
+
+  connection.onreconnecting(() => setStatus(false, "riconnessione in corso..."));
+  connection.onreconnected(() => {
+    setStatus(true, "connesso");
+    // Dopo una riconnessione, il server ha perso lo stato dei gruppi per questa
+    // connessione (nuovo ConnectionId): ri-iscriviamoci esplicitamente.
+    if (currentTicker) connection.invoke("Subscribe", currentTicker);
+  });
+  connection.onclose(() => setStatus(false, "disconnesso"));
+
+  connection
+    .start()
+    .then(() => {
+      setStatus(true, "connesso come " + userName);
+      renderTickerList();
+      switchTicker(knownTickers[0]);
+    })
+    .catch((err) => {
+      setStatus(false, "errore di connessione");
+      logLine(`<span class="tag-reject">[ERRORE]</span> impossibile connettersi: ${err}`);
+    });
+}
+
+// ============ UTILITY ============
+const localUsers = new Set();
+function refreshFakeUserList(name, online) {
+  if (online) localUsers.add(name);
+  else localUsers.delete(name);
+  const ul = document.getElementById("userList");
+  ul.innerHTML = "";
+  localUsers.forEach((u) => {
+    const li = document.createElement("li");
+    li.textContent = u;
+    ul.appendChild(li);
+  });
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+</script>
+
+</body>
+</html>
