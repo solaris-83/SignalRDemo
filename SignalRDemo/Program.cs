@@ -1,9 +1,18 @@
+using ScriptLibraries.Data.Interfaces;
 using SignalRDemo;
+using UIFramework;
+using UIFramework.Interfaces;
+using UIFramework.SpecializedPages;
+
+
+
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Stato di mercato condiviso, singleton per tutta l'app.
 builder.Services.AddSingleton<MarketState>();
+builder.Services.AddSingleton<UIBuilderService>();
+builder.Services.AddSingleton<IUiEventService>(sp => sp.GetRequiredService<UIBuilderService>());
 
 builder.Services.AddSignalR();
 
@@ -31,4 +40,6 @@ app.MapGet("/", () => "TradingHub server attivo. Endpoint SignalR: /hubs/market"
 
 app.MapHub<MarketHub>("/hubs/market");
 
+UIBuilderService uiImplementation = app.Services.GetRequiredService<UIBuilderService>();
+uiImplementation.CreateStandardPage();
 app.Run();

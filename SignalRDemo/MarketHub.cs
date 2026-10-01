@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.SignalR;
+using Newtonsoft.Json;
 using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
+using UIFramework;
 
 namespace SignalRDemo
 {
@@ -24,7 +26,7 @@ namespace SignalRDemo
             ["TSLA"] = 245.10m,
         };
 
-        // ticker -> insieme di (connectionId, userName)
+        // pageId -> insieme di (connectionId, userName)
         public ConcurrentDictionary<string, ConcurrentDictionary<string, string>> Subscribers { get; } = new();
 
         // connectionId -> userName, per sapere chi è connesso globalmente
@@ -35,10 +37,12 @@ namespace SignalRDemo
     {
         private readonly MarketState _state;
         private static readonly Random _rng = new();
+        private readonly IUiEventService _uiEventService;
 
-        public MarketHub(MarketState state)
+        public MarketHub(MarketState state, IUiEventService uiEventService)
         {
             _state = state;
+            _uiEventService = uiEventService;
         }
 
         // ---------- Ciclo di vita della connessione ----------
@@ -116,6 +120,13 @@ namespace SignalRDemo
         }
 
         // ---------- Invocazione client -> server: piazzare un ordine ----------
+
+
+        public Task NotifyModel(UIEventList events)
+        {
+            _uiEventService.HandleUIEvent(events);
+            return Task.CompletedTask;
+        }
 
         public async Task PlaceOrder(OrderRequest order)
         {

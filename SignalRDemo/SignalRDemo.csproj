@@ -6,4 +6,23 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="HtmlAgilityPack">
+      <HintPath>LibBCA\HtmlAgilityPack.dll</HintPath>
+    </Reference>
+    <Reference Include="ScriptLibraries.Data.Interfaces">
+      <HintPath>LibBCA\ScriptLibraries.Data.Interfaces.dll</HintPath>
+    </Reference>
+    <Reference Include="UIFramework">
+      <HintPath>LibBCA\UIFramework.dll</HintPath>
+    </Reference>
+    <Reference Include="UIFramework.Helpers">
+      <HintPath>LibBCA\UIFramework.Helpers.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
 </Project>
