@@ -1,4 +1,4 @@
-﻿using ScriptLibraries.Data.Interfaces;
+﻿using Common.Data.Interfaces;
 
 namespace SignalRDemo.UIFrameworkImpl
 {
@@ -6,7 +6,7 @@ namespace SignalRDemo.UIFrameworkImpl
     {
         public Dictionary<string, ITranslations> AllTranslations => new Dictionary<string, ITranslations> { { "SharedTranslations", new Translation() } };
 
-        public string Translate(string key) => AllTranslations.TryGetValue("SharedTranslations", out var translations) ? translations.GetLocalOrDefault(key) : string.Empty;
+        public string Translate(string key) => AllTranslations.TryGetValue("SharedTranslations", out var translations) ? ((Translation)translations).GetLocalOrDefault(key) : string.Empty;
     }
 
     public class Translation : ITranslations

@@ -1,9 +1,8 @@
 ﻿using System.Runtime.CompilerServices;
-using UIFramework.Interfaces;
 
 namespace SignalRDemo.UIFrameworkImpl
 {
-    public class ConsoleLogger : UIFramework.Interfaces.ILogger
+    public class ConsoleLogger : UIFramework.Abstractions.ILogger
     {
         public void Debug(string message, [CallerMemberName] string memberName = "", [CallerFilePath] string filePath = "", [CallerLineNumber] int lineNumber = 0)
         {

@@ -1,8 +1,8 @@
-﻿using Newtonsoft.Json;
-using ScriptLibraries.Data.Interfaces;
+﻿using Common.Data.Interfaces;
+using Newtonsoft.Json;
 using SignalRDemo.UIFrameworkImpl;
 using UIFramework;
-using UIFramework.Interfaces;
+using UIFramework.Abstractions;
 using UIFramework.SpecializedPages;
 
 namespace SignalRDemo
@@ -10,7 +10,7 @@ namespace SignalRDemo
     public class UIBuilderService : IUiEventService
     {
         private readonly ITranslationService _translatorService;
-        private readonly UIFramework.Interfaces.ILogger _consoleLogger;
+        private readonly UIFramework.Abstractions.ILogger _consoleLogger;
         private readonly IUIContext _uicontext;
         private readonly Action<string> _callBackSendToUI;
         //private readonly IHubContext<MarketHub> _hubContext;
@@ -43,7 +43,7 @@ namespace SignalRDemo
         {
             var page = (Page)UIElementFactory.CreatePage(_uicontext);
             var btn = page.AddButtonExit();
-
+            var btnContinue = page.AddButton("CONTINUE");
             var tab = page.AddTab("tab", 1, 1);
             var section = UIElementFactory.CreateSection(1, 1, _uicontext);
             var table = UIElementFactory.CreateTable();
@@ -54,17 +54,17 @@ namespace SignalRDemo
             section.Add(table, 0, 0);
             tab.Add(section, 0, 0);
 
-            page.OnAfterButtonClicked = async () =>
-            {
-                table.ClearRows();
-                table.AddRow(await GetPostsFromApi());
-            };
-            // In teoria dovrebbe funzionare anche con click (multicast)
-            //page.Click = async () =>
+            //page.OnAfterButtonClicked = async () =>
             //{
             //    table.ClearRows();
             //    table.AddRow(await GetPostsFromApi());
             //};
+            // In teoria dovrebbe funzionare anche con click (multicast)
+            btnContinue.Clicked += async (s, e) =>
+            {
+                table.ClearRows();
+                table.AddRow(await GetPostsFromApi());
+            };
 
             page.DataChanged += (sender, e) =>
             {
@@ -74,7 +74,6 @@ namespace SignalRDemo
             _communicationDispatcher = new UICommunicationDispatcher(page, _consoleLogger);
             _communicationDispatcher.SendToUI("PAGE", page, _callBackSendToUI);
         }
-
 
         private async Task<List<Post>> GetPostsFromApi()
         {
